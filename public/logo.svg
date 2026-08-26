@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" fill="none">
+  <rect x="2" y="2" width="56" height="56" rx="8" fill="#16a34a" stroke="#22c55e" stroke-width="2"/>
+  <path d="M18 18 L30 12 L42 18 L42 42 L30 48 L18 42 Z" fill="#052e16" opacity="0.3"/>
+  <text x="22" y="38" font-family="Arial Black, sans-serif" font-size="18" font-weight="900" fill="white">IM</text>
+  <text x="65" y="28" font-family="Arial Black, sans-serif" font-size="20" font-weight="900" fill="currentColor" class="logo-text">IMA</text>
+  <text x="65" y="48" font-family="Arial Black, sans-serif" font-size="20" font-weight="900" fill="#22c55e">SPORT</text>
+  <circle cx="188" cy="30" r="6" fill="#22c55e" opacity="0.8"/>
+  <path d="M185 30 L188 26 L191 30 L188 34 Z" fill="white"/>
+</svg>
