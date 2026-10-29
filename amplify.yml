@@ -1,0 +1,41 @@
+version: 1
+# Amplify Hosting build for a Gen 2 (TypeScript) backend plus a Next.js 16 SSR
+# frontend. The `backend` phase deploys the Amplify backend for this branch and
+# writes `amplify_outputs.json`, which the frontend build then imports — that
+# file is gitignored on purpose, because it differs per environment.
+#
+# Prerequisite: the Amplify app needs a service role with the
+# `AmplifyBackendDeployFullAccess` managed policy, otherwise the backend phase
+# fails with an access-denied error from CloudFormation.
+backend:
+  phases:
+    preBuild:
+      commands:
+        # The Amplify Gen 2 CLI needs Node 20.6+/22+; pin it rather than
+        # inheriting whatever the build image defaults to.
+        - nvm use 22 || nvm install 22
+        - node --version
+        - npm ci --cache .npm --prefer-offline
+    build:
+      commands:
+        - npx ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - nvm use 22 || nvm install 22
+        - node --version
+        # Reuses the backend phase's install when the cache is warm.
+        - npm ci --cache .npm --prefer-offline
+    build:
+      commands:
+        - npx tsc --noEmit
+        - npm run build
+  artifacts:
+    baseDirectory: .next
+    files:
+      - "**/*"
+  cache:
+    paths:
+      - .next/cache/**/*
+      - .npm/**/*
