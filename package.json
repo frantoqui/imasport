@@ -13,9 +13,11 @@
     "sandbox:delete": "ampx sandbox delete --identifier imasportdev",
     "seed": "tsx scripts/seed.ts",
     "test:auth": "tsx scripts/smoke-test.ts",
-    "test:e2e": "tsx scripts/e2e-test.ts && tsx scripts/prune-orphans.ts --delete",
+    "test:e2e": "tsx scripts/e2e-test.ts && tsx scripts/e2e-coach-flow.ts && tsx scripts/e2e-upload.ts && tsx scripts/prune-orphans.ts --delete",
     "test": "npm run typecheck && npm run test:auth",
-    "prune:orphans": "tsx scripts/prune-orphans.ts"
+    "prune:orphans": "tsx scripts/prune-orphans.ts",
+    "test:coach": "tsx scripts/e2e-coach-flow.ts",
+    "test:upload": "tsx scripts/e2e-upload.ts"
   },
   "dependencies": {
     "@aws-amplify/adapter-nextjs": "^1.8.1",

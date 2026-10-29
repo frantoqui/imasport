@@ -43,6 +43,10 @@ export const auth = defineAuth({
       "disableUser",
       "enableUser",
       "updateUserAttributes",
+      // Coaches do not sign themselves up: an administrator creates the
+      // account outright and hands over the initial password.
+      "createUser",
+      "setUserPassword",
     ]),
   ],
 });

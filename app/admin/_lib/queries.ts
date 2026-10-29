@@ -313,7 +313,6 @@ export async function loadCognitoUsers(): Promise<{
 export type AdminCounts = {
   profiles: number;
   coaches: number;
-  pendingCoachRequests: number;
   events: number;
   publishedEvents: number;
   upcomingEvents: number;
@@ -370,8 +369,6 @@ export async function loadAdminCounts(): Promise<AdminCounts> {
   return {
     profiles: profiles.items.length,
     coaches: profiles.items.filter((p) => p.role === "COACH").length,
-    pendingCoachRequests: profiles.items.filter((p) => p.coachStatus === "PENDING")
-      .length,
     events: events.items.length,
     publishedEvents: events.items.filter((e) => e.published === true).length,
     upcomingEvents: events.items.filter((e) => (e.date ?? "") >= today).length,

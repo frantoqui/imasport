@@ -65,17 +65,6 @@ export default async function AdminOverviewPage() {
           icon={<UserCheck size={18} />}
         />
         <StatCard
-          label="Solicitudes de coach"
-          value={counts.pendingCoachRequests}
-          hint={
-            counts.pendingCoachRequests > 0
-              ? "Pendientes de revisar"
-              : "Nada por revisar"
-          }
-          href="/admin/usuarios/solicitudes"
-          icon={<UserCog size={18} />}
-        />
-        <StatCard
           label="Inscripciones a eventos"
           value={counts.registrations}
           href="/admin/eventos"

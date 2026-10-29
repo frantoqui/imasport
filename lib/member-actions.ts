@@ -175,68 +175,6 @@ export type CoachRequestInput = {
   bio?: string | null;
 };
 
-/**
- * Re-submits a coach application from the profile page.
- *
- * `/register-coach` stashes the coach intent in localStorage and only consumes
- * it at first sign-in, so confirming the e-mail on another device loses it.
- * This gives that user a way to ask again.
- *
- * Setting your own `coachStatus` grants nothing: it is a request flag that an
- * admin reviews, and the privilege that actually matters is the Cognito group,
- * which only the ADMINS-only `setUserRole` mutation can change. The write is
- * still scoped to `session.userId` — no userId is accepted from the client.
- */
-export async function requestCoachRole(
-  input: CoachRequestInput
-): Promise<ActionResult> {
-  const session = await requireSession();
-
-  const existing = await userClient.models.UserProfile.get({
-    userId: session.userId,
-  });
-  const readError = errorMessage(existing.errors);
-  if (readError) return failure(`No se pudo leer tu perfil: ${readError}`);
-  if (!existing.data) {
-    return failure("Guarda primero tu perfil para poder solicitar ser coach.");
-  }
-
-  const status = existing.data.coachStatus;
-  if (status === "PENDING") {
-    return failure("Ya tienes una solicitud en revisión.");
-  }
-  if (status === "APPROVED") {
-    return failure("Tu solicitud ya fue aprobada.");
-  }
-
-  const years = optionalNumber(input.yearsExperience);
-  if (years !== null && (years < 0 || years > 60)) {
-    return failure("Los años de experiencia no parecen válidos.");
-  }
-
-  const certifications = optionalText(input.certifications, 500);
-  if (!certifications) {
-    return failure("Cuéntanos tus certificaciones.");
-  }
-
-  const result = await userClient.models.UserProfile.update({
-    userId: session.userId,
-    coachStatus: "PENDING",
-    certifications,
-    yearsExperience: years === null ? null : Math.round(years),
-    specialty: optionalText(input.specialty, 120),
-    bio: optionalText(input.bio, 1500),
-  });
-
-  const error = errorMessage(result.errors);
-  if (error) return failure(`No se pudo enviar la solicitud: ${error}`);
-
-  refresh();
-  return { ok: true };
-}
-
-// --------------------------------------------------------------- appointments
-
 export type AppointmentInput = {
   coachId?: string | null;
   coachName?: string | null;

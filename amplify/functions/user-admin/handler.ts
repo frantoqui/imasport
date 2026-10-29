@@ -2,6 +2,10 @@ import type { AppSyncResolverHandler } from "aws-lambda";
 import {
   CognitoIdentityProviderClient,
   AdminAddUserToGroupCommand,
+  AdminCreateUserCommand,
+  AdminGetUserCommand,
+  AdminSetUserPasswordCommand,
+  UsernameExistsException,
   AdminRemoveUserFromGroupCommand,
   AdminListGroupsForUserCommand,
   AdminDisableUserCommand,
@@ -54,17 +58,23 @@ type Args = {
   userId?: string;
   role?: string;
   enabled?: boolean;
+  email?: string;
+  name?: string;
+  password?: string;
 };
 
 /**
  * Resolves which custom operation was called.
  *
  * Amplify's custom-operation events do not reliably carry AppSync's `info`
- * block, so we fall back to the argument shape. The three operations have
+ * block, so we fall back to the argument shape. The four operations have
  * mutually exclusive signatures, which makes that unambiguous:
- *   setUserRole    -> { userId, role }
- *   setUserEnabled -> { userId, enabled }
- *   listCognitoUsers -> no arguments
+ *   createCoachAccount -> { email, name, password }
+ *   setUserRole        -> { userId, role }
+ *   setUserEnabled     -> { userId, enabled }
+ *   listCognitoUsers   -> no arguments
+ *
+ * `email` is checked first because it is the only operation that carries one.
  */
 function resolveField(event: {
   info?: { fieldName?: string };
@@ -75,6 +85,7 @@ function resolveField(event: {
   if (explicit) return explicit;
 
   const args = event.arguments ?? {};
+  if (typeof args.email === "string") return "createCoachAccount";
   if (typeof args.role === "string") return "setUserRole";
   if (typeof args.enabled === "boolean") return "setUserEnabled";
   return "listCognitoUsers";
@@ -93,6 +104,75 @@ export const handler: AppSyncResolverHandler<Args, unknown> = async (event) => {
   const UserPoolId = userPoolId();
 
   switch (field) {
+    /**
+     * Creates a confirmed coach account.
+     *
+     * The invitation e-mail is suppressed and the password is set as permanent
+     * in the same call, because the admin hands the credentials over directly
+     * rather than relying on Cognito's default sender.
+     */
+    case "createCoachAccount": {
+      const { email, name, password } = event.arguments;
+      if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        throw new Error("Correo no válido.");
+      }
+      if (!name || name.trim().length < 2) {
+        throw new Error("El nombre es obligatorio.");
+      }
+      if (!password || password.length < 8) {
+        throw new Error("La contraseña debe tener al menos 8 caracteres.");
+      }
+
+      const username = email.trim().toLowerCase();
+
+      try {
+        await client.send(
+          new AdminCreateUserCommand({
+            UserPoolId,
+            Username: username,
+            MessageAction: "SUPPRESS",
+            UserAttributes: [
+              { Name: "email", Value: username },
+              { Name: "email_verified", Value: "true" },
+              { Name: "name", Value: name.trim() },
+            ],
+          })
+        );
+      } catch (error) {
+        if (error instanceof UsernameExistsException) {
+          throw new Error("Ya existe una cuenta con ese correo.");
+        }
+        throw error;
+      }
+
+      // Permanent, so the coach is not forced through a password-change
+      // challenge the app has no screen for.
+      await client.send(
+        new AdminSetUserPasswordCommand({
+          UserPoolId,
+          Username: username,
+          Password: password,
+          Permanent: true,
+        })
+      );
+
+      await client.send(
+        new AdminAddUserToGroupCommand({
+          UserPoolId,
+          Username: username,
+          GroupName: "COACHES",
+        })
+      );
+
+      const detail = await client.send(
+        new AdminGetUserCommand({ UserPoolId, Username: username })
+      );
+      const sub = detail.UserAttributes?.find((a) => a.Name === "sub")?.Value;
+      if (!sub) throw new Error("No se pudo leer el id de la cuenta creada.");
+
+      return { userId: sub, email: username, name: name.trim(), ok: true };
+    }
+
     /**
      * Moves a user into exactly one role group, removing the others so a user
      * can never hold two roles at once.

@@ -52,13 +52,13 @@ export default function Footer() {
               <Link href="/planes" className="block hover:text-primary transition-colors">
                 {t.nav.plans}
               </Link>
-              <Link href="/register-coach" className="block hover:text-primary transition-colors">
-                {t.auth.registerCoach}
+              <Link href="/galeria" className="block hover:text-primary transition-colors">
+                {t.nav.gallery}
               </Link>
-              <Link href="#" className="block hover:text-primary transition-colors">
+              <Link href="/terminos" className="block hover:text-primary transition-colors">
                 {t.footer.terms}
               </Link>
-              <Link href="#" className="block hover:text-primary transition-colors">
+              <Link href="/privacidad" className="block hover:text-primary transition-colors">
                 {t.footer.privacy}
               </Link>
             </div>

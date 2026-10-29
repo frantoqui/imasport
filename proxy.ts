@@ -22,7 +22,7 @@ const RULES: Array<{ prefix: string; required: AppRole }> = [
 ];
 
 /** Pages a signed-in user should be bounced off of. */
-const AUTH_PAGES = ["/login", "/register", "/register-coach"];
+const AUTH_PAGES = ["/login", "/register"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -105,6 +105,5 @@ export const config = {
     "/mis-fotos/:path*",
     "/login",
     "/register",
-    "/register-coach",
   ],
 };

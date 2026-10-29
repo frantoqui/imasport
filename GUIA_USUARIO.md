@@ -20,7 +20,7 @@ app.
 |---|---|---|
 | **Visitante** | Sin cuenta | Página principal, planes, coaches, eventos, galería pública |
 | **Atleta** | Se registra en `/register` | Su panel, su perfil, sus fotos, inscripción a eventos |
-| **Coach** | Se registra en `/register-coach` y un administrador lo aprueba | Panel de coach: evaluar atletas, tomar fotos, ver clases del día |
+| **Coach** | **Lo crea un administrador** desde `/admin/usuarios` | Panel de coach: evaluar atletas, tomar fotos, ver clases del día |
 | **Administrador** | Lo designa otro administrador | Todo el panel `/admin` |
 
 ---
@@ -37,18 +37,18 @@ app.
 La contraseña debe tener al menos 8 caracteres, con mayúscula, minúscula,
 número y símbolo. El formulario lo valida antes de enviar.
 
-### Coach (`/register-coach`)
+### Coach — lo crea el administrador
 
-Mismo proceso, más certificaciones, años de experiencia, especialidad y
-biografía.
+Los coaches **no se registran por su cuenta**. Un administrador crea la cuenta
+en `/admin/usuarios` → **Nuevo coach**: nombre, correo y una contraseña
+inicial (hay un botón para generar una válida), más disciplina,
+certificaciones, especialidad, experiencia y biografía.
 
-**Importante:** el coach empieza como atleta. Un administrador revisa la
-solicitud en `/admin/usuarios/solicitudes` y al aprobarla el panel de coach se
-desbloquea. Después de la aprobación hay que **cerrar sesión y volver a
-entrar** para que el nuevo rol tome efecto.
+La cuenta queda lista y confirmada al instante, dentro del grupo de coaches.
+**No se envía correo**: el administrador entrega la contraseña directamente y
+el coach la cambia con "¿Olvidaste tu contraseña?".
 
-Si alguien ya tiene cuenta y quiere ser coach, puede solicitarlo desde su
-perfil ("Solicitar ser coach").
+Opcionalmente se crea también su ficha pública (como borrador, sin publicar).
 
 ### Recuperar contraseña
 
@@ -124,7 +124,6 @@ invitando a empezar en lugar de gráficas vacías.
   citas quedan como *pendientes* y se pueden cancelar.
 - **Preferencias de notificaciones** — avisos de clase, recordatorios y resumen
   semanal.
-- **Solicitar ser coach**, si aplica.
 
 ---
 
@@ -158,8 +157,7 @@ Pensado para tablet, con botones grandes.
 | **Eventos** | Crear, editar, publicar y borrar eventos; portada; destacado |
 | **Inscripciones** | Quién se inscribió, cambiar estado, marcar asistencia, exportar CSV |
 | **Galería** | Crear álbumes, subir varias fotos a la vez, poner leyendas, reordenar, borrar |
-| **Usuarios** | Ver todas las cuentas, cambiar rol, activar/desactivar, editar plan y estado de pago |
-| **Solicitudes de coach** | Aprobar o rechazar; al aprobar se puede crear su tarjeta pública |
+| **Usuarios** | Ver todas las cuentas, **crear coaches**, cambiar rol, activar/desactivar, editar plan y estado de pago |
 | **Planes** | Nombre, precio y beneficios de cada membresía (español e inglés) |
 | **Coaches** | La cuadrícula pública de coaches: foto, bio, certificaciones, orden |
 | **FAQ** | Las preguntas frecuentes del sitio |
@@ -202,7 +200,6 @@ Notas de uso:
 | Privacidad | `/privacidad` | Cualquiera |
 | Iniciar sesión | `/login` | Sin sesión |
 | Registro | `/register` | Sin sesión |
-| Registro de coach | `/register-coach` | Sin sesión |
 | Confirmar correo | `/confirmar` | Sin sesión |
 | Recuperar contraseña | `/recuperar` | Sin sesión |
 | Panel del atleta | `/dashboard` | Atleta |

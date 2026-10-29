@@ -71,8 +71,11 @@ npm run dev              # http://localhost:3000 (usa otro puerto si está ocupa
 ```bash
 npm run typecheck        # next typegen + tsc
 npm run lint
-npm run test:auth        # 46 pruebas de autorización contra el backend real
-npm run test:e2e         # pruebas de navegador (requiere npm run dev aparte)
+npm run test:auth        # 52 pruebas de autorización contra el backend real
+npm run test:e2e         # 69 pruebas de navegador (requiere npm run dev aparte)
+npm run test:coach       # solo el flujo de coach
+npm run test:upload      # solo las subidas a S3
+npm run prune:orphans    # borra perfiles sin cuenta de Cognito
 npm test                 # typecheck + test:auth
 ```
 
@@ -228,19 +231,69 @@ El lockfile sí se versiona y `npm install` lo respeta donde es consistente. **N
 cambiar `npm install` por `npm ci` en `amplify.yml`** sin verificar antes que el
 problema upstream ya se resolvió.
 
-### Autenticación por identity pool para usuarios con sesión
+### `filter` se aplica DESPUÉS del límite de página
+
+Esta es la trampa más fácil de pisar en todo el proyecto. En AppSync, un
+`list({ filter, limit })` lee primero `limit` registros de DynamoDB y **luego**
+aplica el filtro. Con `limit: 1` casi siempre devuelve cero resultados aunque
+el registro exista.
+
+Causó dos fallos reales:
+
+- El chequeo de propiedad en `/api/media` usaba
+  `list({ filter: { key, athleteId }, limit: 1 })` y **negaba a cada atleta sus
+  propias fotos**. Ahora consulta el índice secundario
+  `listAthletePhotoByAthleteId`, que lee solo la partición de ese atleta, y
+  pagina.
+- Una prueba dio un falso negativo y me hizo creer que el panel de coach no
+  guardaba datos, cuando sí lo hacía.
+
+Reglas: para buscar algo concreto usa el **índice secundario**, no un `filter`;
+y si usas `filter`, **sigue siempre `nextToken` hasta el final** y filtra
+también en memoria. Nunca combines `filter` con un `limit` pequeño.
+
+### Los permisos deben darse por GRUPO, no con `authenticated`
 
 Al iniciar sesión, el usuario entra a un grupo de Cognito y el identity pool le
-entrega el rol **de ese grupo** (`ATHLETES`/`COACHES`/`ADMINS`). Amplify solo
-asigna permisos de AppSync a los roles autenticado/no-autenticado por defecto,
-así que una lectura con `identityPool` por parte de un usuario con sesión
-devuelve `Unauthorized`.
+entrega el rol **de ese grupo** (`ATHLETES` / `COACHES` / `ADMINS`). Amplify
+solo asocia las políticas de `allow.authenticated` al rol autenticado *por
+defecto*, que ya nadie usa. Resultado: **`allow.authenticated` no concede nada
+a nadie**.
 
-No se puede arreglar desde el schema. En el cliente hay que usar
-`publicAuthMode()` de `lib/amplify-client.ts`, que elige `userPool` cuando hay
-sesión y `identityPool` cuando no. En el servidor, `listAsGuest`/`getAsGuest`
-corren sin contexto de petición, así que siempre usan credenciales anónimas y
-no se ven afectados.
+Afecta a los dos lados:
+
+- **Datos (AppSync):** una lectura con `identityPool` por parte de un usuario
+  con sesión devuelve `Unauthorized`. En el cliente se resuelve con
+  `publicAuthMode()` de `lib/amplify-client.ts`; en el servidor,
+  `listAsGuest`/`getAsGuest` corren sin contexto de petición y no se ven
+  afectados.
+- **Storage (S3):** `amplify/storage/resource.ts` concede permisos **grupo por
+  grupo**. Antes los atletas no tenían ningún permiso de lectura y no podían
+  ver sus propias fotos de progreso. No sustituyas esas reglas por
+  `allow.authenticated`.
+
+### Cognito limita la tasa de peticiones de credenciales
+
+Cada render que lee contenido público y cada llamada GraphQL del navegador
+resuelve credenciales del identity pool. Con tráfico normal es una o dos
+llamadas por página, pero una tanda de pruebas automatizadas agota la cuota de
+la cuenta y Cognito empieza a responder `TooManyRequestsException` (HTTP 400).
+
+No rompe las páginas, pero se ve en la consola del navegador y, sin
+protección, provocaba errores opacos. Mitigaciones ya aplicadas:
+
+- `lib/public-cache.ts` cachea las lecturas públicas 20 s (una sola
+  negociación de credenciales por clave y ventana).
+- `/api/media` cachea las URLs firmadas públicas: un álbum de 20 fotos hacía 20
+  negociaciones por visita.
+- `lib/retry.ts` reintenta con *backoff* y detecta el *throttling* anidado
+  dentro del `NoSignedUser` de Amplify.
+- Las Server Actions capturan sus propias excepciones: si una se escapa, React
+  la sustituye en producción por un opaco *"Minified React error #441"* y el
+  administrador no sabe si su cambio se guardó.
+
+Las pruebas informan cuántas peticiones fueron limitadas en lugar de fallar por
+ello, para no confundir una cuota agotada con un defecto.
 
 ### `TS2321` con el cliente SSR de Amplify
 

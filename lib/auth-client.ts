@@ -31,7 +31,6 @@ export type PendingProfile = {
   phone?: string;
   discipline?: Discipline;
   planTier?: PlanTier;
-  wantsCoach?: boolean;
   certifications?: string;
   yearsExperience?: number;
   specialty?: string;
@@ -226,9 +225,8 @@ export async function ensureProfile(): Promise<void> {
     planTier: pending?.planTier,
     planStatus: pending?.planTier ? "PENDING" : undefined,
     memberSince: today,
-    // A coach sign-up is only a request; an admin still has to approve it
-    // before the Cognito group changes.
-    coachStatus: pending?.wantsCoach ? "PENDING" : "NONE",
+    // Coaches never arrive through sign-up; an admin creates those accounts.
+    coachStatus: "NONE",
     certifications: pending?.certifications,
     yearsExperience: pending?.yearsExperience,
     specialty: pending?.specialty,

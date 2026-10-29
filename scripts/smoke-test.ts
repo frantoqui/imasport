@@ -22,6 +22,7 @@ import {
   AdminAddUserToGroupCommand,
   AdminGetUserCommand,
   AdminDeleteUserCommand,
+  AdminListGroupsForUserCommand,
   UsernameExistsException,
 } from "@aws-sdk/client-cognito-identity-provider";
 import type { Schema } from "../amplify/data/resource";
@@ -379,6 +380,13 @@ async function main() {
   await denied("athlete CANNOT call listCognitoUsers", () =>
     asUser.queries.listCognitoUsers()
   );
+  await denied("athlete CANNOT create a coach account", () =>
+    asUser.mutations.createCoachAccount({
+      email: `hack-athlete-${stamp}@imasport.test`,
+      name: "Hack",
+      password: "Hacked2025!",
+    })
+  );
 
   await allowed("athlete logs own Workout", () =>
     asUser.models.Workout.create({
@@ -488,6 +496,13 @@ async function main() {
   await denied("coach CANNOT call setUserRole", () =>
     asUser.mutations.setUserRole({ userId: subA, role: "ADMINS" })
   );
+  await denied("coach CANNOT create a coach account", () =>
+    asUser.mutations.createCoachAccount({
+      email: `hack-coach-${stamp}@imasport.test`,
+      name: "Hack",
+      password: "Hacked2025!",
+    })
+  );
 
   // Athlete can now READ what the coach wrote about them.
   await loginAs(ATHLETE_A);
@@ -552,6 +567,54 @@ async function main() {
         asUser.models.Event.delete({ id: created.id! })
       );
     }
+
+    // Coaches have no self-service sign-up, so this is the only path that
+    // creates one. It is also the most sensitive mutation in the app.
+    const newCoachEmail = `smoke-newcoach-${stamp}@imasport.test`;
+    const coachCreated = (await allowed("admin creates a coach account", () =>
+      asUser.mutations.createCoachAccount({
+        email: newCoachEmail,
+        name: "Coach Nuevo",
+        password: PASSWORD,
+      })
+    )) as unknown;
+
+    const parsed =
+      typeof coachCreated === "string"
+        ? (JSON.parse(coachCreated) as { userId?: string })
+        : ((coachCreated ?? {}) as { userId?: string });
+    if (parsed.userId) {
+      createdUsers.push(newCoachEmail);
+      createdSubs.push(parsed.userId);
+      const groups = await cognito.send(
+        new AdminListGroupsForUserCommand({
+          UserPoolId: USER_POOL_ID,
+          Username: newCoachEmail,
+        })
+      );
+      record(
+        (groups.Groups ?? []).some((g) => g.GroupName === "COACHES"),
+        "the new coach lands in the COACHES group",
+        (groups.Groups ?? []).map((g) => g.GroupName).join(", ")
+      );
+    } else {
+      record(false, "the new coach lands in the COACHES group", "no userId returned");
+    }
+
+    await denied("admin CANNOT create a coach with a weak password", () =>
+      asUser.mutations.createCoachAccount({
+        email: `smoke-weak-${stamp}@imasport.test`,
+        name: "Weak",
+        password: "short",
+      })
+    );
+    await denied("admin CANNOT create a duplicate coach account", () =>
+      asUser.mutations.createCoachAccount({
+        email: newCoachEmail,
+        name: "Duplicate",
+        password: PASSWORD,
+      })
+    );
   }
 
   // --- Report -----------------------------------------------------------

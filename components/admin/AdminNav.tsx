@@ -40,7 +40,7 @@ function useIsActive() {
     item.exact ? pathname === item.href : pathname.startsWith(item.href);
 }
 
-export function AdminSidebar({ pendingCoachRequests }: { pendingCoachRequests: number }) {
+export function AdminSidebar() {
   const isActive = useIsActive();
 
   return (
@@ -59,12 +59,7 @@ export function AdminSidebar({ pendingCoachRequests }: { pendingCoachRequests: n
             }`}
           >
             <Icon size={18} />
-            <span className="flex-1">{item.label}</span>
-            {item.href === "/admin/usuarios" && pendingCoachRequests > 0 ? (
-              <span className="px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
-                {pendingCoachRequests}
-              </span>
-            ) : null}
+            <span>{item.label}</span>
           </Link>
         );
       })}

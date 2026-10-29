@@ -430,6 +430,22 @@ const schema = a
 
     // ---- Admin-only Cognito operations -------------------------------------
 
+    /**
+     * Creates a confirmed coach account with an initial password the admin
+     * sets and passes on out-of-band. Coaches have no self-service sign-up, so
+     * this is the only way one is created.
+     */
+    createCoachAccount: a
+      .mutation()
+      .arguments({
+        email: a.string().required(),
+        name: a.string().required(),
+        password: a.string().required(),
+      })
+      .returns(a.json())
+      .authorization((allow) => [allow.group("ADMINS")])
+      .handler(a.handler.function(userAdmin)),
+
     setUserRole: a
       .mutation()
       .arguments({

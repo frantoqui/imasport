@@ -429,15 +429,6 @@ export function UsersTable({
                         )}
                         {row.enabled ? "Deshabilitar" : "Habilitar"}
                       </button>
-
-                      {row.coachStatus === "PENDING" ? (
-                        <Link
-                          href="/admin/usuarios/solicitudes"
-                          className={ghostBtnSmClass}
-                        >
-                          Revisar solicitud
-                        </Link>
-                      ) : null}
                     </div>
                   </td>
                 </tr>

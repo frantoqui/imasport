@@ -159,6 +159,25 @@ export type PlanInput = {
   active: boolean;
 };
 
+/**
+ * A new coach account, created outright by an administrator.
+ *
+ * Coaches have no self-service sign-up: the admin sets an initial password and
+ * passes it on directly, so no invitation e-mail is involved.
+ */
+export type CreateCoachInput = {
+  name: string;
+  email: string;
+  password: string;
+  discipline: Discipline | null;
+  certifications: string | null;
+  specialty: string | null;
+  yearsExperience: number | null;
+  bio: string | null;
+  /** Also create the public coach card (as a draft). */
+  createCard: boolean;
+};
+
 export type CoachInput = {
   userId: string | null;
   name: string;

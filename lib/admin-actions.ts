@@ -24,11 +24,14 @@
 import { refresh, updateTag } from "next/cache";
 import { requireRole } from "@/lib/dal";
 import { userClient } from "@/lib/amplify-server";
+import { withAuthRetry } from "@/lib/retry";
 import {
+  parseJsonValue,
   ROLE_FOR_GROUP,
   type ActionResult,
   type AlbumInput,
   type CoachInput,
+  type CreateCoachInput,
   type CognitoGroup,
   type EventInput,
   type FaqInput,
@@ -625,83 +628,136 @@ export async function updateUserPlan(
 }
 
 /**
- * Approves a coach application: marks the profile APPROVED, moves the account
- * into the COACHES group, mirrors the role onto the profile and — optionally —
- * creates the public coach card prefilled from the application.
+ * Creates a coach account.
+ *
+ * Coaches do not sign themselves up — this is the only way one is created.
+ * The Cognito account is made by the ADMINS-only `createCoachAccount`
+ * mutation (the browser is never allowed near Cognito admin APIs), and the
+ * profile rows are written here afterwards.
+ *
+ * The account is created first and the profile second, so a failure part-way
+ * leaves a usable login rather than an orphaned profile row. If the profile
+ * write fails the admin is told explicitly, because the coach can sign in but
+ * will have no name on screen until it is fixed.
  */
-export async function approveCoach(
-  userId: string,
-  options: { createCoachProfile: boolean }
-): Promise<ActionResult<null>> {
+export async function createCoachAccount(
+  input: CreateCoachInput
+): Promise<ActionResult<{ userId: string }>> {
   await requireRole("admin");
 
-  const { data: profile, errors: getErrors } =
-    await userClient.models.UserProfile.get({ userId });
-  const getError = errorText(getErrors);
-  if (getError) return fail(getError);
-  if (!profile) {
-    return fail("Este usuario no tiene perfil, no hay solicitud que aprobar.");
+  const name = input.name?.trim() ?? "";
+  const email = input.email?.trim().toLowerCase() ?? "";
+  const password = input.password ?? "";
+
+  if (name.length < 2) return fail("Escribe el nombre del coach.");
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return fail("El correo no es válido.");
+  }
+  // Mirrors the Cognito password policy so the admin gets a useful message
+  // instead of a raw InvalidPasswordException.
+  if (password.length < 8) {
+    return fail("La contraseña debe tener al menos 8 caracteres.");
+  }
+  if (
+    !/[a-z]/.test(password) ||
+    !/[A-Z]/.test(password) ||
+    !/[0-9]/.test(password) ||
+    !/[^A-Za-z0-9]/.test(password)
+  ) {
+    return fail(
+      "La contraseña necesita mayúscula, minúscula, número y un símbolo."
+    );
   }
 
-  const { errors: updateErrors } = await userClient.models.UserProfile.update({
-    userId,
-    coachStatus: "APPROVED",
-    role: "COACH",
-  });
-  const updateError = errorText(updateErrors);
-  if (updateError) return fail(updateError);
+  // Every call below is retried and its throw is caught. A Cognito throttle
+  // used to let the exception escape the action, and React replaces a
+  // server-side error with an opaque "Minified React error #441" in
+  // production — so the admin saw that instead of either a success message or
+  // a usable explanation, with no way to tell whether the account was made.
+  let userId: string;
+  try {
+    const { data, errors } = await withAuthRetry(() =>
+      userClient.mutations.createCoachAccount({ email, name, password })
+    );
+    const mutationError = errorText(errors);
+    if (mutationError) return fail(mutationError);
 
-  const { errors: groupErrors } = await userClient.mutations.setUserRole({
-    userId,
-    role: "COACHES",
-  });
-  const groupError = errorText(groupErrors);
-  if (groupError) {
+    const created = parseJsonValue<{ userId?: string }>(data);
+    if (!created?.userId) {
+      return fail("La cuenta se creó pero no se pudo leer su id.");
+    }
+    userId = created.userId;
+  } catch (error) {
     return fail(
-      `Se marcó la solicitud como aprobada, pero el grupo de Cognito no cambió: ${groupError}`
+      `No se pudo crear la cuenta: ${
+        error instanceof Error ? error.message : "error desconocido"
+      }. Revisa la lista de usuarios antes de reintentar, por si quedó creada.`
+    );
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  let profileError: string | null = null;
+  try {
+    const { errors: profileErrors } = await withAuthRetry(() =>
+      userClient.models.UserProfile.create({
+        userId,
+        email,
+        name,
+        role: "COACH",
+        discipline: input.discipline ?? null,
+        certifications: input.certifications ?? null,
+        specialty: input.specialty ?? null,
+        yearsExperience: input.yearsExperience ?? null,
+        bio: input.bio ?? null,
+        coachStatus: "APPROVED",
+        memberSince: today,
+        isActive: true,
+      })
+    );
+    profileError = errorText(profileErrors);
+  } catch (error) {
+    profileError =
+      error instanceof Error ? error.message : "error desconocido";
+  }
+  if (profileError) {
+    invalidate("users");
+    return fail(
+      `La cuenta de ${email} se creó y ya puede entrar, pero su perfil no se guardó: ${profileError}`
     );
   }
 
   let cardNote = "";
-  if (options.createCoachProfile) {
-    const { errors: cardErrors } = await userClient.models.CoachProfile.create({
-      userId,
-      name: profile.name,
-      discipline: profile.discipline ?? null,
-      certifications: profile.certifications ?? null,
-      bio: profile.bio ?? null,
-      specialty: profile.specialty ?? null,
-      yearsExperience: profile.yearsExperience ?? null,
-      published: false,
-      order: 99,
-    });
-    const cardError = errorText(cardErrors);
+  if (input.createCard) {
+    let cardError: string | null = null;
+    try {
+      const { errors: cardErrors } = await withAuthRetry(() =>
+        userClient.models.CoachProfile.create({
+          userId,
+          name,
+          discipline: input.discipline ?? null,
+          certifications: input.certifications ?? null,
+          specialty: input.specialty ?? null,
+          yearsExperience: input.yearsExperience ?? null,
+          bio: input.bio ?? null,
+          published: false,
+          order: 99,
+        })
+      );
+      cardError = errorText(cardErrors);
+    } catch (error) {
+      cardError = error instanceof Error ? error.message : "error desconocido";
+    }
     cardNote = cardError
-      ? ` La ficha pública no se creó: ${cardError}`
+      ? ` Su ficha pública no se creó: ${cardError}`
       : " Se creó su ficha pública como borrador (revísala en Coaches).";
   }
 
   invalidate("users", "coaches");
-  return ok(null, `Solicitud aprobada.${cardNote}`);
+  return ok(
+    { userId },
+    `Coach ${name} creado. Entrégale la contraseña en persona y pídele que la cambie.${cardNote}`
+  );
 }
-
-export async function rejectCoach(userId: string): Promise<ActionResult<null>> {
-  await requireRole("admin");
-
-  const { errors } = await userClient.models.UserProfile.update({
-    userId,
-    coachStatus: "REJECTED",
-  });
-  const error = errorText(errors);
-  if (error) return fail(error);
-
-  invalidate("users");
-  return ok(null, "Solicitud rechazada.");
-}
-
-// ---------------------------------------------------------------------------
-// Plans
-// ---------------------------------------------------------------------------
 
 /**
  * `features` / `featuresEn` are `a.string().array()`. An empty list is sent as

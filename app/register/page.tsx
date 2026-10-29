@@ -378,15 +378,6 @@ export default function RegisterPage() {
             {t.auth.login}
           </Link>
         </p>
-
-        <div className="text-center pt-2 border-t border-border mt-4">
-          <Link
-            href="/register-coach"
-            className="text-sm text-muted-foreground hover:text-primary transition-colors"
-          >
-            {t.auth.registerCoach} →
-          </Link>
-        </div>
       </form>
     </AuthShell>
   );

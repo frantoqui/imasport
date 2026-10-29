@@ -1,7 +1,6 @@
-import Link from "next/link";
-import { UserCog } from "lucide-react";
 import { requireRole } from "@/lib/dal";
 import { roleFromGroups } from "@/lib/roles";
+import { AddCoachForm } from "@/components/admin/AddCoachForm";
 import { UsersTable, type UserRowData } from "@/components/admin/UsersTable";
 import {
   APPROVAL_STATUSES,
@@ -96,24 +95,16 @@ export default async function AdminUsersPage() {
 
   rows.sort((a, b) => a.name.localeCompare(b.name) || a.email.localeCompare(b.email));
 
-  const pending = rows.filter((row) => row.coachStatus === "PENDING").length;
-
   return (
     <>
       <PageHeader
         title="Usuarios"
         description="Cuentas de Cognito y sus perfiles. El rol real es el grupo de Cognito; el campo del perfil es una copia."
-      >
-        <Link href="/admin/usuarios/solicitudes" className={primaryBtnClass}>
-          <UserCog size={16} />
-          Solicitudes de coach
-          {pending > 0 ? (
-            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-primary-foreground/20 text-xs">
-              {pending}
-            </span>
-          ) : null}
-        </Link>
-      </PageHeader>
+      />
+
+      <div className="mb-6">
+        <AddCoachForm />
+      </div>
 
       <ErrorBanner message={profiles.error} />
       {profiles.truncated ? (

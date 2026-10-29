@@ -14,19 +14,6 @@ import { AdminSidebar, AdminTabs } from "@/components/admin/AdminNav";
 export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   const session = await requireRole("admin");
 
-  // Only used for the badge on the Usuarios link; a failure here must never
-  // take the whole panel down, so the count simply falls back to zero.
-  let pendingCoachRequests = 0;
-  try {
-    const { data } = await userClient.models.UserProfile.list({
-      filter: { coachStatus: { eq: "PENDING" } },
-      limit: 100,
-    });
-    pendingCoachRequests = data?.length ?? 0;
-  } catch {
-    pendingCoachRequests = 0;
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 bg-nav-bg backdrop-blur-md border-b border-border">
@@ -61,7 +48,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex gap-8">
-        <AdminSidebar pendingCoachRequests={pendingCoachRequests} />
+        <AdminSidebar />
         <main className="flex-1 min-w-0">
           <AdminTabs />
           {children}

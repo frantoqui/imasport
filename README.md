@@ -37,8 +37,9 @@ SEED_ADMIN_PASSWORD='...' SEED_DEMO=1 npm run seed
 npm run typecheck
 npm run lint
 export SEED_ADMIN_PASSWORD='...'   # las pruebas inician sesión como admin
-npm run test:auth    # 46 verificaciones de lo que cada rol puede y NO puede
-npm run test:e2e     # 39 verificaciones en navegador (requiere npm run dev)
+npm run test:auth    # 52 verificaciones de lo que cada rol puede y NO puede
+npm run test:e2e     # 59 verificaciones en navegador (requiere npm run dev)
+npm run test:coach   # solo el flujo de coach (crear coach, evaluar, ver datos)
 ```
 
 `test:auth` es la red de seguridad importante: si alguien cambia una regla de
@@ -61,6 +62,8 @@ autorización en `amplify/data/resource.ts`, estas pruebas lo detectan.
   única fuente de verdad; `UserProfile.role` es solo una copia para listar.
 - Un registro **nunca** puede darse privilegios: todos caen en `ATHLETES`, y los
   cambios de rol pasan por mutaciones restringidas a `ADMINS`.
+- Los **coaches no se registran**: un administrador crea su cuenta desde
+  `/admin/usuarios`. Crear cuentas es una mutación exclusiva de `ADMINS`.
 - `proxy.ts` filtra rutas, pero **cada página protegida vuelve a verificar** con
   `requireRole()`. El proxy nunca es la única defensa.
 - El bucket de S3 es privado. Las imágenes se sirven por `/api/media/<key>`,

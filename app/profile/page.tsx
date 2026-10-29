@@ -1,6 +1,5 @@
 import AvatarUpload from "@/components/AvatarUpload";
 import Navbar from "@/components/Navbar";
-import CoachRequestCard from "@/components/member/CoachRequestCard";
 import ProfileForm from "@/components/member/ProfileForm";
 import ProfileHeader from "@/components/member/ProfileHeader";
 import ScheduleSection from "@/components/member/ScheduleSection";
@@ -119,17 +118,6 @@ export default async function ProfilePage() {
 
           <ProfileForm profile={profile}>
             <ScheduleSection coaches={coaches} appointments={appointments} />
-
-            {/* Only athletes can apply — a coach or admin already has it. */}
-            {session.role === "athlete" && (
-              <CoachRequestCard
-                coachStatus={profile.coachStatus}
-                certifications={profile.certifications}
-                yearsExperience={profile.yearsExperience}
-                specialty={profile.specialty}
-                bio={profile.bio}
-              />
-            )}
           </ProfileForm>
         </div>
       </main>
