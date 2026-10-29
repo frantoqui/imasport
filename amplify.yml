@@ -43,7 +43,12 @@ frontend:
         - npm install --cache .npm --prefer-offline --no-audit --no-fund
     build:
       commands:
-        - npx tsc --noEmit
+        # `npm run typecheck` is `next typegen && tsc --noEmit`. The typegen
+        # step is required, not optional: PageProps / LayoutProps /
+        # RouteContext are globals Next generates into .next/types, which is
+        # gitignored, so a bare `tsc` on a fresh checkout fails with
+        # "Cannot find name 'PageProps'" on every typed route.
+        - npm run typecheck
         - npm run build
   artifacts:
     baseDirectory: .next
