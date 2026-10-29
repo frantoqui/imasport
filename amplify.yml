@@ -15,7 +15,14 @@ backend:
         # inheriting whatever the build image defaults to.
         - nvm use 22 || nvm install 22
         - node --version
-        - npm ci --cache .npm --prefer-offline
+        # `npm install`, not `npm ci`, on purpose. Amplify's own packages carry
+        # conflicting exact pins on `@aws-cdk/toolkit-lib`
+        # (@aws-amplify/plugin-types pins 1.32.0 while backend-deployer wants
+        # ^1.40.0), and no lockfile `npm install` produces can satisfy
+        # `npm ci`'s stricter tree check — it fails with
+        # "Missing: @aws-cdk/toolkit-lib@1.19.0 from lock file".
+        # The committed lockfile is still honoured wherever it is consistent.
+        - npm install --cache .npm --prefer-offline --no-audit --no-fund
     build:
       commands:
         - npx ampx pipeline-deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
@@ -26,7 +33,14 @@ frontend:
         - nvm use 22 || nvm install 22
         - node --version
         # Reuses the backend phase's install when the cache is warm.
-        - npm ci --cache .npm --prefer-offline
+        # `npm install`, not `npm ci`, on purpose. Amplify's own packages carry
+        # conflicting exact pins on `@aws-cdk/toolkit-lib`
+        # (@aws-amplify/plugin-types pins 1.32.0 while backend-deployer wants
+        # ^1.40.0), and no lockfile `npm install` produces can satisfy
+        # `npm ci`'s stricter tree check — it fails with
+        # "Missing: @aws-cdk/toolkit-lib@1.19.0 from lock file".
+        # The committed lockfile is still honoured wherever it is consistent.
+        - npm install --cache .npm --prefer-offline --no-audit --no-fund
     build:
       commands:
         - npx tsc --noEmit
