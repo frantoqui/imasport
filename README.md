@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# IMASPORT
 
-## Getting Started
+Plataforma web del gimnasio IMASPORT (Morelia): CrossFit, Hyrox y Calistenia.
+Sitio público, panel para atletas, panel para coaches y administración.
 
-First, run the development server:
+**Next.js 16** (App Router, SSR) sobre **AWS Amplify Gen 2** — Cognito para
+cuentas y roles, AppSync/DynamoDB para datos, S3 para fotos.
+
+---
+
+## Arrancar
+
+Requiere **Node 22** (la CLI de Amplify Gen 2 no soporta versiones más nuevas;
+ver `DEPLOYMENT.md`).
 
 ```bash
+nvm use 22
+npm install
+
+npm run sandbox        # despliega tu backend aislado en AWS
+SEED_ADMIN_PASSWORD='...' npm run seed    # contenido inicial + primer admin
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+El sandbox genera `amplify_outputs.json`, que no se versiona porque cambia por
+entorno.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Para datos de ejemplo (un atleta con historial, para ver las gráficas):
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+SEED_ADMIN_PASSWORD='...' SEED_DEMO=1 npm run seed
+```
 
-## Learn More
+## Pruebas
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run typecheck
+npm run lint
+export SEED_ADMIN_PASSWORD='...'   # las pruebas inician sesión como admin
+npm run test:auth    # 46 verificaciones de lo que cada rol puede y NO puede
+npm run test:e2e     # 39 verificaciones en navegador (requiere npm run dev)
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+`test:auth` es la red de seguridad importante: si alguien cambia una regla de
+autorización en `amplify/data/resource.ts`, estas pruebas lo detectan.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Estructura
 
-## Deploy on Vercel
+| Ruta | Qué hay |
+|---|---|
+| `amplify/` | Backend: auth, 17 modelos de datos, storage, Lambdas |
+| `app/` | Rutas. `app/admin` es el panel de administración |
+| `components/` | UI. `admin/`, `member/`, `gallery/` por área |
+| `lib/` | Acceso a datos, sesión (`dal.ts`), roles, media, caché |
+| `proxy.ts` | Filtro de rutas (en Next 16 reemplaza a `middleware.ts`) |
+| `scripts/` | Seed, pruebas y mantenimiento |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Seguridad, en corto
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Los **roles son grupos de Cognito** (`ADMINS` / `COACHES` / `ATHLETES`). Es la
+  única fuente de verdad; `UserProfile.role` es solo una copia para listar.
+- Un registro **nunca** puede darse privilegios: todos caen en `ATHLETES`, y los
+  cambios de rol pasan por mutaciones restringidas a `ADMINS`.
+- `proxy.ts` filtra rutas, pero **cada página protegida vuelve a verificar** con
+  `requireRole()`. El proxy nunca es la única defensa.
+- El bucket de S3 es privado. Las imágenes se sirven por `/api/media/<key>`,
+  que autoriza y redirige a una URL firmada de corta duración.
+- No hay contraseñas en el repositorio.
+
+## Documentación
+
+- **`GUIA_USUARIO.md`** — guía funcional: roles, registro, cada pantalla.
+- **`DEPLOYMENT.md`** — despliegue, pendientes antes de abrir al público y los
+  problemas conocidos (incluido por qué el build usa `npm install` y no
+  `npm ci`, y por qué el override de `tsx` no se debe quitar).

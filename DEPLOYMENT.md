@@ -207,6 +207,27 @@ en `package.json`:
 desplegar. Las importaciones dentro de `amplify/` usan extensión `.js`
 explícita, que es válida en ESM y en CJS.
 
+### `npm ci` no funciona en este proyecto
+
+El build usa `npm install`, no `npm ci`, y eso es deliberado.
+
+Los propios paquetes de Amplify tienen versiones exactas en conflicto para
+`@aws-cdk/toolkit-lib`: `@aws-amplify/plugin-types` lo fija en `1.32.0` y
+`@aws-amplify/backend-deployer` pide `^1.40.0`. Ningún `package-lock.json`
+generado por `npm install` satisface la validación más estricta de `npm ci`:
+siempre falla con
+
+```
+npm error Missing: @aws-cdk/toolkit-lib@1.19.0 from lock file
+```
+
+pidiendo una versión que ningún paquete declara. Se reprodujo en un directorio
+aislado, con npm 10 y con npm 11, y borrando `node_modules` y el lockfile.
+
+El lockfile sí se versiona y `npm install` lo respeta donde es consistente. **No
+cambiar `npm install` por `npm ci` en `amplify.yml`** sin verificar antes que el
+problema upstream ya se resolvió.
+
 ### Autenticación por identity pool para usuarios con sesión
 
 Al iniciar sesión, el usuario entra a un grupo de Cognito y el identity pool le
